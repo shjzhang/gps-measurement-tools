@@ -100,5 +100,9 @@ public class GpsTime {
 		min=(int)sec/MINSEC;
 		sec=sec%MINSEC;
 		sec=(double)Math.round(sec);
+		if(sec>=60){
+			sec=sec-60;
+			min=min+1;
+		}
 	}
 }
