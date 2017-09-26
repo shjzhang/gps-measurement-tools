@@ -5,8 +5,10 @@
  */
 package com.google.android.apps.location.gps.gnsslogger;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.location.GnssClock;
 import android.location.GnssMeasurement;
 import android.location.GnssMeasurementsEvent;
@@ -17,10 +19,11 @@ import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.SystemClock;
 import android.util.Log;
 import android.widget.Toast;
+
 import com.google.android.apps.location.gps.gnsslogger.LoggerFragment.UIFragmentComponent;
+
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileFilter;
@@ -38,21 +41,19 @@ import java.util.Locale;
  */
 public class FileLogger implements GnssListener {
 
+    //private LocationManager locationManager;
+    //private Location location;
     private static final String TAG = "FileLogger";
     private static final String FILE_PREFIX = "ObsFile";
     private static final String ERROR_WRITING_FILE = "Problem writing to file.";
-    private static final String COMMENT_START = "# ";
-    private static final char RECORD_DELIMITER = ',';
-    private static final String VERSION_TAG = "Version: ";
-    private static final String FILE_VERSION = "1.4.0.0, Platform: N";
-    public final static int MAXTOWUNCNS=500;
-    public final static int MAXPRRUNCMPS=20;
-    public final static int MINCN0DBHZ=20;
-    public final static int MAXGPSSVID=32;
-    public final static int DAYSEC=24*3600;
-    public final static int HOURSEC=3600;
-    public final static int MINSEC=60;
-    public final static int[]	monthDays={31,28,31,30,31,30,31,31,30,31,30,31};
+    //private static final String COMMENT_START = "# ";
+    //private static final char RECORD_DELIMITER = ',';
+    //private static final String VERSION_TAG = "Version: ";
+    //private static final String FILE_VERSION = "1.4.0.0, Platform: N";
+    public final static int MAXTOWUNCNS = 500;
+    public final static int MAXPRRUNCMPS = 20;
+    public final static int MINCN0DBHZ = 30;
+    public final static int MAXGPSSVID = 32;
     private static final int MAX_FILES_STORED = 100;
     private static final int MINIMUM_USABLE_FILE_SIZE_BYTES = 1000;
     private final Context mContext;
@@ -60,6 +61,7 @@ public class FileLogger implements GnssListener {
     private BufferedWriter mFileWriter;
     private File mFile;
     private UIFragmentComponent mUiComponent;
+
     public synchronized UIFragmentComponent getUiComponent() {
         return mUiComponent;
     }
@@ -77,6 +79,8 @@ public class FileLogger implements GnssListener {
      */
     public void startNewLog() {
         synchronized (mFileLock) {
+
+            //创建存储观测文件的文件夹（/ObsFile）
             File baseDirectory;
             String state = Environment.getExternalStorageState();
             if (Environment.MEDIA_MOUNTED.equals(state)) {
@@ -90,23 +94,44 @@ public class FileLogger implements GnssListener {
                 return;
             }
 
+            //创建观测值文件和输入文件流
             SimpleDateFormat formatter = new SimpleDateFormat("yyy_MM_dd_HH_mm_ss");
             Date now = new Date();
             String fileName = String.format("%s_log_%s.obs", FILE_PREFIX, formatter.format(now));
             File currentFile = new File(baseDirectory, fileName);
-            String currentFilePath = currentFile.getAbsolutePath();
-            BufferedWriter currentFileWriter;
+            String currentFilePath = currentFile.getAbsolutePath();//获取文件路径
+            BufferedWriter currentFileWriter;//创建文件输入流
             try {
                 currentFileWriter = new BufferedWriter(new FileWriter(currentFile));
             } catch (IOException e) {
                 logException("Could not open file: " + currentFilePath, e);
                 return;
             }
+            /*
+            locationManager = (LocationManager) mContext.getSystemService(Context.LOCATION_SERVICE);
+            if (ActivityCompat.checkSelfPermission(this.mContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this.mContext, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                // TODO: Consider calling
+                //    ActivityCompat#requestPermissions
+                // here to request the missing permissions, and then overriding
+                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                //                                          int[] grantResults)
+                // to handle the case where the user grants the permission. See the documentation
+                // for ActivityCompat#requestPermissions for more details.
+                return;
+            }
+            Location location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+            double lat=location.getLatitude();
+            double alt=location.getAltitude();
+            double lng=location.getLongitude();
+            Log.d(TAG,"Latitude: "+lat);
+            Log.d(TAG,"Longtitude: "+lng);
+            Log.d(TAG,"Altitude: "+alt);
+            */
 
-            // initialize the contents of the file
+            // 输入Obs文件的文件头  initialize the header of the observation file
             try {
                 Log.d(TAG,"Start Write File");
-                currentFileWriter.write("     2.11           OBSERVATION DATA    G (GPS)                    RINEX VERSION / TYPE\n");
+                currentFileWriter.write("     2.11           OBSERVATION DATA    G (GPS)             RINEX VERSION / TYPE\n");
                 currentFileWriter.write("LoggerReader        CASHZHANG WHU       ");
                 SimpleDateFormat formatter2 = new SimpleDateFormat("yyyyMMdd HHmmss");
                 currentFileWriter.write(String.format(formatter2.format(now))+" UTC PGM / RUN BY / DATE\n");
@@ -114,10 +139,10 @@ public class FileLogger implements GnssListener {
                 currentFileWriter.write("                                                            OBSERVER / AGENCY\n");
                 currentFileWriter.write("                                                            REC # / TYPE / VERS\n");
                 currentFileWriter.write("                                                            ANT # / TYPE\n");
-                currentFileWriter.write("-2267662.7966  5008768.0193  3221937.1078                  APPROX POSITION XYZ\n");
-                currentFileWriter.write("0.0000        0.0000        0.0000                  ANTENNA: DELTA H/E/N\n");
-                currentFileWriter.write("1     0                                                WAVELENGTH FACT L1/2\n");
-                currentFileWriter.write("3    C1    L1    S1                                    # / TYPES OF OBSERV\n");
+                currentFileWriter.write(" -2267662.7966  5008768.0193  3221937.1078                  APPROX POSITION XYZ\n");
+                currentFileWriter.write("        0.0000        0.0000        0.0000                  ANTENNA: DELTA H/E/N\n");
+                currentFileWriter.write("     1     0                                                WAVELENGTH FACT L1/2\n");
+                currentFileWriter.write("     3    C1    L1    S1                                    # / TYPES OF OBSERV\n");
                 SimpleDateFormat formatter3 = new SimpleDateFormat("  yyyy    MM    dd    HH    mm   ss");
                 currentFileWriter.write(String.format(formatter3.format(now))+".0000000     GPS         TIME OF FIRST OBS\n");
                 currentFileWriter.write("                                                            END OF HEADER\n");
@@ -126,6 +151,7 @@ public class FileLogger implements GnssListener {
                 return;
             }
 
+            //确认mFileWriter文件流为空
             if (mFileWriter != null) {
                 try {
                     mFileWriter.close();
@@ -135,11 +161,12 @@ public class FileLogger implements GnssListener {
                 }
             }
 
+            //输入观测值
             mFile = currentFile;
             mFileWriter = currentFileWriter;
             Toast.makeText(mContext, "File opened: " + currentFilePath, Toast.LENGTH_SHORT).show();
 
-            // To make sure that files do not fill up the external storage:
+            // 确保存储的观测值文件不会填满硬盘 To make sure that files do not fill up the external storage:
             // - Remove all empty files
             FileFilter filter = new FileToDeleteFilter(mFile);
             for (File existingFile : baseDirectory.listFiles(filter)) {
@@ -158,6 +185,7 @@ public class FileLogger implements GnssListener {
     }
 
     /*
+      观测值文件分享机制
       Send the current log via email or other options selected from a pop menu shown to the user. A
       new log is started when calling this function.
      */
@@ -192,8 +220,8 @@ public class FileLogger implements GnssListener {
 
     @Override
     public void onLocationChanged(Location location) {
-        /*
-        if (location.getProvider().equals(LocationManager.GPS_PROVIDER)) {
+
+       /* if (location.getProvider().equals(LocationManager.GPS_PROVIDER)) {
             synchronized (mFileLock) {
                 if (mFileWriter == null) {
                     return;
@@ -217,7 +245,7 @@ public class FileLogger implements GnssListener {
                 }
             }
         }
-    */
+        */
     }
 
     @Override
